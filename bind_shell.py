@@ -19,7 +19,7 @@ def execute_cmd(cmd):
     # On Linux system
     if platform.system() == 'Linux':
         try:
-            output = subprocess.check_output(f"{cmd}", stderr=subprocess.STDOUT)
+            output = subprocess.check_output(cmd.split(), stderr=subprocess.STDOUT)
         except:
             output = b'Command failed.'
     # On Windows system
