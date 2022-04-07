@@ -3,7 +3,6 @@ from javax import swing
 from java.awt import BorderLayout
 from exceptions_fix import FixBurpExceptions
 
-import os
 import time
 import socket
 import threading
@@ -111,7 +110,7 @@ class BurpExtender(IBurpExtender, ITab):
             data = self.s.recv(4096)
 
             if data:
-                decrypted = self.aes.decrypt(data).replace('Enter command>', '')
+                decrypted = self.aes.decrypt(data.strip()).replace('Enter command>', '')
                 self.response_data = decrypted
 
     def connect(self, event):

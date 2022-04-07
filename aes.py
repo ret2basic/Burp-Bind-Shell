@@ -224,6 +224,10 @@ class AES:
         """Customized unpadding scheme."""
 
         padding = text[-1]
+
+        print "text = {}".format(text)
+        print "padding = {}".format(padding)
+        
         padding_length = self.reverse_lookup_table[padding]
         result = text[:-padding_length]
 
@@ -311,8 +315,7 @@ class AES:
         return plaintext
 
     def test(self):
-        # plaintext = 'ctf{this_is_a_flag}'
-        plaintext = 'whoami'
+        plaintext = 'ctf{this_is_a_flag}'
         encrypted = self.encrypt(plaintext)
         print "encrypted: {}".format(encrypted)
         decrypted = self.decrypt(encrypted)
