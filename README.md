@@ -2,7 +2,7 @@
 
 ## Feature
 
-"Burp Bind Shell" is a Burp extension that implements an **encrypted** bind shell. It is written in Python and the underlying encryption scheme is AES-CBC. The AES was implemented from scratch with zero dependency.
+"Burp Bind Shell" is a Burp extension that implements an **encrypted** bind shell. It is written in **Python2** and the underlying encryption scheme is AES-CBC. The AES was implemented from scratch with zero dependency.
 
 If the bind shell is unencrypted, the commands sent over the network can be easily intercepted using a sniffer tool such as Wireshark. With Burp Bind Shell, that won't be an issue. For example, when executing the command `id`, Wireshark can only intercept the encrypted data:
 
@@ -46,7 +46,7 @@ Open Burp, go to "Extender -> Extensions -> Add", choose "Extension type: Python
 In a terminal, start the listener:
 
 ```shell
-sudo python3 bind_shell.py -l
+sudo python bind_shell.py -l
 ```
 
-In Burp, select the "Bind Shell" tab and enter an IP address. For local testing, the IP address is 127.0.0.1. Click "Connect". Once connected, enter a command and click "Send". When you finish all the work, click "Disconnect".
+Note that the `python` here is Python2. In Burp, select the "Bind Shell" tab and enter an IP address. For local testing, the IP address is 127.0.0.1. Click "Connect". Once connected, enter a command and click "Send". When you finish all the work, click "Disconnect".
