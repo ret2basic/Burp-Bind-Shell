@@ -1,21 +1,23 @@
 # Burp Bind Shell
 
-This project is made of two major parts:
+## Feature
+
+"Burp Bind Shell" is a Burp extension that implements an **encrypted** bind shell. It is written in Python and the underlying encryption scheme is AES-CBC. The AES was implemented from scratch with zero dependency.
+
+If the bind shell is unencrypted, the commands sent over the network can be easily intercepted using a sniffer tool such as Wireshark. With Burp Bind Shell, that won't be an issue. For example, when executing the command `id`, Wireshark can only intercept the encrypted data:
+
+![Bind Shell demo](Bind_Shell_demo.png)
+
+## Structure
+
+This project is made of three major programs:
 
 - `bind_shell.py`
   - An encrypted bind shell implementation that works in Linux/Windows command line.
 - `burp_bind_shell.py`
-  - A Burp extension that adds GUI to the encrypted bind shell implementation.
-
-### `bind_shell.py`
-
-This bind shell is **encrypted** using AES. If the bind shell is unencrypted, the commands sent over the network can be easily intercepted using a sniffer tool such as Wireshark. For example, when executing the command `id`, Wireshark can only intercept the encrypted data:
-
-![Encrypted Bind Shell](Encrypted_Bind_Shell.png)
-
-### `burp_bind_shell.py`
-
-
+  - A Burp extension that adds GUI to `bind_shell.py`.
+- `aes.py`
+  - An implementation of AES-CBC encryption/decryption with absolutely zero dependency.
 
 ## Dependencies
 
@@ -37,7 +39,9 @@ The sad thing is PyCryptodome has C code that Jython is not able to translate. F
 
 ## Usage
 
-### `bind_shell.py`
+Open Burp, go to "Extender -> Extensions -> Add", choose "Extension type: Python" and select `burp_bind_shell.py`, then click "Next":
+
+![add extension](add_extension.png)
 
 In a terminal, start the listener:
 
@@ -45,14 +49,4 @@ In a terminal, start the listener:
 sudo python3 bind_shell.py -l
 ```
 
-In another terminal, connect to the listener:
-
-```shell
-python3 bind_shell.py -c 127.0.0.1
-```
-
-### `burp_bind_shell.py`
-
-Open Burp, go to "Extender -> Extensions -> Add", Choose "Extension type: Python" and select `burp_bind_shell.py`. Click "Next".
-
-
+In Burp, select the "Bind Shell" tab and enter an IP address. For local testing, the IP address is 127.0.0.1. Click "Connect". Once connected, enter a command and click "Send". When you finish all the work, click "Disconnect".
