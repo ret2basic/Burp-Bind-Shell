@@ -1,5 +1,3 @@
-import binascii
-
 def _string_to_bytes(text):
     return list(ord(c) for c in text)
 
@@ -8,10 +6,50 @@ def _bytes_to_string(binary):
 
 class AES:
     def __init__(self):
-        self.key = binascii.unhexlify('423F4528472B4B6250655368566D5971')
+        self.key = '423F4528472B4B6250655368566D5971'.decode('hex')
         self.N_ROUNDS = 10
         # Learned from http://cs.ucsb.edu/~koc/cs178/projects/JT/aes.c
         self.xtime = lambda a: (((a << 1) ^ 0x1B) & 0xFF) if (a & 0x80) else (a << 1)
+
+        # Customized padding scheme
+        self.lookup_table = {
+            1 : '1',
+            2 : '2',
+            3 : '3',
+            4 : '4',
+            5 : '5',
+            6 : '6',
+            7 : '7',
+            8 : '8',
+            9 : '9',
+            10 : 'a',
+            11 : 'b',
+            12 : 'c',
+            13 : 'd',
+            14 : 'e',
+            15 : 'f',
+            16 : 'x',
+        }
+
+        # Customized unpadding scheme
+        self.reverse_lookup_table = {
+            '1' : 1,
+            '2' : 2,
+            '3' : 3,
+            '4' : 4,
+            '5' : 5,
+            '6' : 6,
+            '7' : 7,
+            '8' : 8,
+            '9' : 9,
+            'a' : 10,
+            'b' : 11,
+            'c' : 12,
+            'd' : 13,
+            'e' : 14,
+            'f' : 15,
+            'x' : 16,
+        }
 
         self.s_box = (
         0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76,
@@ -173,33 +211,28 @@ class AES:
         # Group key words in 4x4 byte matrices.
         return [key_columns[4*i : 4*(i+1)] for i in range(len(key_columns) // 4)]
 
-    def pad(self, plaintext):
-        """
-        Pads the given plaintext with PKCS#7 padding to a multiple of 16 bytes.
-        Note that if the plaintext size is a multiple of 16,
-        a whole block will be added.
-        """
-        padding_len = 16 - (len(plaintext) % 16)
-        padding = _bytes_to_string([padding_len] * padding_len)
-        return plaintext + padding
+    def pad(self, text):
+        """Customized padding scheme."""
 
-    def unpad(self, plaintext):
-        """
-        Removes a PKCS#7 padding, returning the unpadded text and ensuring the
-        padding was correct.
-        """
-        padding_len = ord(plaintext[-1])
-        assert padding_len > 0
-        message, padding = plaintext[:-padding_len], plaintext[-padding_len:]
-        # assert all(p == padding_len for p in padding)
-        return message
-    
-    def encrypt(self, plaintext):
-        """AES encryption with pkcs7 padding."""
+        padding_length = 16 - (len(text) % 16)
+        padding = self.lookup_table[padding_length]
+        result = text + padding * padding_length
 
-        # pkcs7 padding
-        padded_plaintext = self.pad(plaintext)
-        state = self.bytes2matrix(padded_plaintext)
+        return result
+
+    def unpad(self, text):
+        """Customized unpadding scheme."""
+
+        padding = text[-1]
+        padding_length = self.reverse_lookup_table[padding]
+        result = text[:-padding_length]
+
+        return result
+
+    def encrypt_one_block(self, plaintext):
+        """AES encryption with customized padding scheme."""
+
+        state = self.bytes2matrix(plaintext)
         
         round_keys = self.expand_key(self.key)
         state = self.add_round_key(state, round_keys[0])
@@ -220,14 +253,14 @@ class AES:
 
         return ciphertext
 
-    def decrypt(self, ciphertext):
-        """AES decryption with pkcs7 unpadding."""
-        round_keys = self.expand_key(self.key) # Remember to start from the last round key and work backwards through them when decrypting
-        
+    def decrypt_one_block(self, ciphertext):
+        """AES decryption with customized unpadding scheme."""
+
         # Convert ciphertext to state matrix
         state = self.bytes2matrix(ciphertext)
 
-        # Initial add round key step
+        round_keys = self.expand_key(self.key)
+        # Remember to start from the last round key and work backwards through them when decrypting
         state = self.add_round_key(state, round_keys[self.N_ROUNDS])
 
         for i in range(self.N_ROUNDS - 1, 0, -1):
@@ -243,16 +276,47 @@ class AES:
 
         # Convert state matrix to plaintext
         plaintext = self.matrix2bytes(state)
-        # pkcs7 unpadding
-        unpadded_plaintext = self.unpad(plaintext)
 
-        return unpadded_plaintext
+        return plaintext
+
+    def encrypt(self, plaintext):
+        """Encrypt blocks one after another."""
+
+        plaintext = self.pad(plaintext)
+        num_of_blocks = len(plaintext) // 16
+
+        ciphertext = ""
+        for i in range(num_of_blocks):
+            plaintext_block = plaintext[i*16:(i+1)*16]
+            ciphertext += self.encrypt_one_block(plaintext_block)
+
+        ciphertext = ciphertext.encode('hex')
+        
+        return ciphertext
+
+
+    def decrypt(self, ciphertext):
+        """Decrypt blocks one after another."""
+
+        ciphertext = ciphertext.decode('hex')
+        num_of_blocks = len(ciphertext) // 16
+
+        plaintext = ""
+        for i in range(num_of_blocks):
+            ciphertext_block = ciphertext[i*16:(i+1)*16]
+            plaintext += self.decrypt_one_block(ciphertext_block)
+
+        plaintext = self.unpad(plaintext)
+        
+        return plaintext
 
     def test(self):
-        plaintext = '1337'
-        print self.encrypt(plaintext).encode('hex')
-        ciphertext = binascii.unhexlify('5a2bf41d5bcf3da0fec9623194bad74a')
-        print self.decrypt(ciphertext)
+        # plaintext = 'ctf{this_is_a_flag}'
+        plaintext = 'whoami'
+        encrypted = self.encrypt(plaintext)
+        print "encrypted: {}".format(encrypted)
+        decrypted = self.decrypt(encrypted)
+        print "decrypted: {}".format(decrypted)
 
 if __name__ == '__main__':
     aes = AES()

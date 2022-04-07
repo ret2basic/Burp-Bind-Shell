@@ -9,7 +9,7 @@ import socket
 import threading
 import sys
 
-from aes_homemade import AES
+from aes import AES
 
 class BurpExtender(IBurpExtender, ITab):
     def registerExtenderCallbacks(self, callbacks):
@@ -82,20 +82,16 @@ class BurpExtender(IBurpExtender, ITab):
     def getUiComponent(self):
         return self.tab
 
-    def decode_and_strip(self, s):
-        """Decode and strip the string."""
-        return s.decode('latin-1').strip()
-
-    def encrypted_send(self, s, msg):
+    def encrypted_send(self, s, message):
         """Send an AES-encrypted message."""
-        encrypted = self.aes.encrypt(self.aes.pad(msg))
-        s.send(encrypted.encode('latin-1'))
+        encrypted = self.aes.encrypt(message)
+        s.send(encrypted)
     
     def send(self, event):
         """"""
         self.clicked = True
         # Hack race condition
-        time.sleep(1)
+        time.sleep(0.5)
         self.output.text = self.response_data
 
     def send_thread(self):
@@ -113,11 +109,10 @@ class BurpExtender(IBurpExtender, ITab):
                 sys.exit()
 
             data = self.s.recv(4096)
+
             if data:
-                data = data.replace('Enter Command> ', '')
-                buffer = self.aes.decrypt(self.decode_and_strip(data))
-                buffer = self.decode_and_strip(buffer)
-                self.response_data = buffer
+                decrypted = self.aes.decrypt(data).replace('Enter command>', '')
+                self.response_data = decrypted
 
     def connect(self, event):
         """"""
