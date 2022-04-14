@@ -33,7 +33,13 @@ This is only needed if you wish to run the bind shell from terminal. If you just
 
 ### Jython
 
-Jython is an implementation of the Python programming language designed to run on the Java platform. In Burp, go to "Extender -> Options -> Python Environment -> Select file" and select the `jython-standalone-2.7.2.jar` file in this repo.
+Jython is an implementation of the Python programming language designed to run on the Java platform. Download the "standalone" version of Jython:
+
+```shell
+wget https://repo1.maven.org/maven2/org/python/jython-standalone/2.7.2/jython-standalone-2.7.2.jar
+```
+
+In Burp, go to "Extender -> Options -> Python Environment -> Select file" and select the `jython-standalone-2.7.2.jar` you just downloaded.
 
 The sad thing is PyCryptodome has C code that Jython is not able to translate. For the Burp extension, I had to implement AES on my own.
 
